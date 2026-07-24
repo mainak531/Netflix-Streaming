@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+<style>
+  :root {
+    --bg:       #0a0a0a;
+    --surface:  #111111;
+    --border:   #1e1e1e;
+    --border2:  #2a2a2a;
+    --text:     #f0ece4;
+    --muted:    #5a5650;
+    --accent:   #c8a97e;
+    --accent2:  #8b6f4e;
+    --danger:   #c0392b;
+    --ready:    #2e7d52;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.92);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .logo em { font-style: italic; color: var(--text); }
+
+  .header-right {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .search-wrap {
+    position: relative;
+  }
+  .search-wrap input {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 300;
+    padding: 8px 36px 8px 14px;
+    border-radius: 4px;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s, width 0.3s;
+  }
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-wrap input:focus { border-color: var(--accent2); width: 280px; }
+  .search-wrap svg {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); pointer-events: none;
+  }
+
+  .config-btn {
+    background: none; border: 1px solid var(--border2);
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; padding: 8px 14px; border-radius: 4px;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .config-btn:hover { border-color: var(--accent2); color: var(--accent); }
+
+  /* ── CONFIG PANEL ── */
+  .config-panel {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .config-panel.open { display: flex; }
+
+  .config-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 32px;
+    width: 420px;
+    max-width: 90vw;
+  }
+  .config-box h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px; font-weight: 400;
+    margin-bottom: 6px;
+  }
+  .config-box p { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .field input {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border2); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300;
+    padding: 10px 14px; border-radius: 4px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus { border-color: var(--accent2); }
+
+  .config-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-save {
+    flex: 1; background: var(--accent); color: #0a0a0a;
+    border: none; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; padding: 11px;
+    border-radius: 4px; cursor: pointer; transition: opacity 0.2s;
+  }
+  .btn-save:hover { opacity: 0.85; }
+  .btn-cancel {
+    background: none; border: 1px solid var(--border2); color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 11px 20px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+  /* ── MAIN ── */
+  main { padding: 100px 40px 60px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── GENRE TABS ── */
+  .genre-row {
+    display: flex; gap: 6px; margin-bottom: 36px;
+    overflow-x: auto; padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .genre-row::-webkit-scrollbar { display: none; }
+
+  .genre-pill {
+    background: none; border: 1px solid var(--border2);
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 400; padding: 6px 16px;
+    border-radius: 100px; cursor: pointer;
+    white-space: nowrap; transition: all 0.2s;
+  }
+  .genre-pill:hover { border-color: var(--accent2); color: var(--accent); }
+  .genre-pill.active { background: var(--accent); border-color: var(--accent); color: #0a0a0a; font-weight: 500; }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 14px; font-weight: 400;
+    color: var(--muted); letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 20px;
+  }
+
+  /* ── GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    border-radius: 6px; overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.25s ease, border-color 0.25s;
+    animation: fadeUp 0.4s ease both;
+  }
+  .card:hover { transform: translateY(-4px); border-color: var(--border2); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-thumb {
+    width: 100%; aspect-ratio: 2/3;
+    background: var(--border);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .card-thumb .placeholder-icon {
+    width: 40px; height: 40px; opacity: 0.15;
+  }
+
+  .card-status {
+    position: absolute; top: 8px; right: 8px;
+    font-size: 10px; font-weight: 500; letter-spacing: 0.06em;
+    padding: 3px 8px; border-radius: 3px; text-transform: uppercase;
+  }
+  .status-READY    { background: rgba(46,125,82,0.9); color: #a8f0c6; }
+  .status-ENCODING { background: rgba(184,134,11,0.9); color: #fde68a; }
+  .status-UPLOADED { background: rgba(37,99,235,0.85); color: #bfdbfe; }
+  .status-PENDING  { background: rgba(75,75,75,0.9); color: #ccc; }
+  .status-FAILED   { background: rgba(192,57,43,0.9); color: #fca5a5; }
+
+  .card-body { padding: 14px; }
+  .card-title {
+    font-size: 14px; font-weight: 400; line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 6px;
+  }
+  .card-meta {
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-rating { color: var(--accent); font-weight: 500; }
+  .dot { width: 2px; height: 2px; background: var(--muted); border-radius: 50%; }
+
+  .play-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .card:hover .play-overlay { opacity: 1; }
+  .play-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 2px solid var(--accent); background: rgba(200,169,126,0.15);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── EMPTY / LOADING ── */
+  .state-msg {
+    grid-column: 1 / -1;
+    text-align: center; padding: 80px 20px;
+    color: var(--muted); font-size: 14px;
+  }
+  .state-msg .big { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--border2); margin-bottom: 10px; }
+
+  .spinner {
+    width: 28px; height: 28px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── PLAYER MODAL ── */
+  .player-modal {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: #000;
+    flex-direction: column;
+  }
+  .player-modal.open { display: flex; }
+
+  .player-topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 28px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%);
+  }
+  .back-btn {
+    background: none; border: none; color: var(--text);
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    opacity: 0.75; transition: opacity 0.2s; padding: 0;
+  }
+  .back-btn:hover { opacity: 1; }
+
+  .player-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px; font-weight: 400; color: var(--text);
+  }
+  .player-title span { font-style: italic; color: var(--muted); font-size: 14px; margin-left: 10px; }
+
+  video {
+    width: 100%; height: 100%;
+    object-fit: contain; background: #000;
+  }
+
+  /* ── PLAYER BOTTOM META ── */
+  .player-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+    padding: 28px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+  }
+  .player-info {
+    display: flex; align-items: center; gap: 16px;
+    font-size: 13px; color: rgba(240,236,228,0.55);
+  }
+  .player-badge {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 3px; text-transform: uppercase;
+    border: 1px solid var(--accent2); color: var(--accent);
+  }
+
+  /* ── LOADING OVERLAY ── */
+  .stream-loading {
+    display: none; position: absolute; inset: 0; z-index: 5;
+    background: rgba(0,0,0,0.85);
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  }
+  .stream-loading.show { display: flex; }
+  .stream-loading p { color: var(--muted); font-size: 13px; }
+
+  /* ── QUALITY SWITCHER ── */
+  .quality-wrap {
+    position: absolute; bottom: 72px; right: 28px; z-index: 20;
+  }
+  .quality-btn {
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(200,169,126,0.35);
+    color: var(--accent); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer; letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 6px;
+    backdrop-filter: blur(6px); transition: border-color .2s, background .2s;
+  }
+  .quality-btn:hover { background: rgba(0,0,0,0.75); border-color: var(--accent); }
+  .quality-btn svg { flex-shrink: 0; }
+
+  .quality-menu {
+    display: none; position: absolute; bottom: calc(100% + 8px); right: 0;
+    background: rgba(14,14,14,0.96); border: 1px solid var(--border2);
+    border-radius: 6px; overflow: hidden; min-width: 130px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .quality-menu.open { display: block; }
+  .quality-menu-header {
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); padding: 9px 14px 6px; border-bottom: 1px solid var(--border);
+  }
+  .quality-option {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; font-size: 13px; color: var(--text);
+    cursor: pointer; transition: background .15s; gap: 20px;
+  }
+  .quality-option:hover { background: var(--border); }
+  .quality-option.active { color: var(--accent); }
+  .quality-option.active::after {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+  .quality-bitrate { font-size: 11px; color: var(--muted); }
+
+  /* ── ERROR TOAST ── */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface); border: 1px solid var(--danger);
+    color: #fca5a5; font-size: 13px;
+    padding: 12px 20px; border-radius: 6px;
+    transition: transform 0.3s; z-index: 400; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── DETAIL PANEL ── */
+  .detail-panel {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.75);
+    align-items: flex-end; justify-content: center;
+  }
+  .detail-panel.open { display: flex; }
+  .detail-box {
+    background: var(--surface); border-top: 1px solid var(--border2);
+    width: 100%; max-width: 600px; padding: 32px 32px 36px;
+    border-radius: 12px 12px 0 0;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+
+  .detail-genre {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .detail-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px; font-weight: 400; line-height: 1.15;
+    margin-bottom: 8px;
+  }
+  .detail-meta {
+    display: flex; gap: 14px; align-items: center;
+    font-size: 13px; color: var(--muted); margin-bottom: 18px;
+  }
+  .detail-meta .rating { color: var(--accent); }
+  .detail-desc {
+    font-size: 14px; color: rgba(240,236,228,0.65);
+    line-height: 1.7; margin-bottom: 24px;
+  }
+  .detail-actions { display: flex; gap: 10px; }
+
+  .btn-play {
+    flex: 1; background: var(--accent); color: #0a0a0a;
+    border: none; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; padding: 13px 24px;
+    border-radius: 5px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity 0.2s;
+  }
+  .btn-play:hover { opacity: 0.85; }
+  .btn-play:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-close-detail {
+    background: none; border: 1px solid var(--border2); color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 13px 20px; border-radius: 5px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-close-detail:hover { border-color: var(--muted); color: var(--text); }
+
+  .not-ready-msg { font-size: 12px; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<!-- CONFIG PANEL -->
+<div class="config-panel" id="configPanel">
+  <div class="config-box">
+    <h2>API Configuration</h2>
+    <p>Set the base URLs for your running backend services.</p>
+    <div class="field">
+      <label>Content Service URL</label>
+      <input type="text" id="contentUrl" placeholder="http://localhost:8081">
+    </div>
+    <div class="field">
+      <label>Streaming Service URL</label>
+      <input type="text" id="streamingUrl" placeholder="http://localhost:8084">
+    </div>
+    <div class="config-actions">
+      <button class="btn-save" onclick="saveConfig()">Save & Load Movies</button>
+      <button class="btn-cancel" onclick="closeConfig()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Stream<em>.</em></div>
+  <div class="header-right">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search titles..." oninput="handleSearch(this.value)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+    </div>
+    <button class="config-btn" onclick="openConfig()">⚙ Configure API</button>
+  </div>
+</header>
+
+<!-- PLAYER MODAL -->
+<div class="player-modal" id="playerModal">
+  <div class="player-topbar">
+    <button class="back-btn" onclick="closePlayer()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M5 12l7 7M5 12l7-7"/>
+      </svg>
+      Back
+    </button>
+    <div class="player-title" id="playerTitle">—</div>
+  </div>
+
+  <div class="stream-loading show" id="streamLoading">
+    <div class="spinner"></div>
+    <p id="streamLoadingMsg">Fetching stream…</p>
+  </div>
+
+  <video id="videoEl" controls></video>
+
+  <!-- Quality switcher -->
+  <div class="quality-wrap" id="qualityWrap" style="display:none">
+    <div class="quality-menu" id="qualityMenu">
+      <div class="quality-menu-header">Quality</div>
+      <div id="qualityOptions"></div>
+    </div>
+    <button class="quality-btn" onclick="toggleQualityMenu(event)" id="qualityBtn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <path d="M8 21h8M12 17v4"/>
+      </svg>
+      <span id="qualityLabel">Auto</span>
+    </button>
+  </div>
+
+  <div class="player-bottom">
+    <div class="player-info">
+      <span class="player-badge" id="qualityBadge">HLS Adaptive</span>
+      <span id="playerQuality"></span>
+      <span id="playerExpiry"></span>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detailPanel" onclick="closeDetail(event)">
+  <div class="detail-box" onclick="event.stopPropagation()">
+    <div class="detail-genre" id="detailGenre">—</div>
+    <div class="detail-title" id="detailTitle">—</div>
+    <div class="detail-meta">
+      <span class="rating" id="detailRating">—</span>
+      <span class="dot"></span>
+      <span id="detailYear">—</span>
+      <span class="dot"></span>
+      <span id="detailDuration">—</span>
+      <span class="dot"></span>
+      <span id="detailDirector">—</span>
+    </div>
+    <div class="detail-desc" id="detailDesc">—</div>
+    <div class="detail-actions">
+      <button class="btn-play" id="btnPlay" onclick="startStream()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+        Play
+      </button>
+      <button class="btn-close-detail" onclick="closeDetail()">Close</button>
+    </div>
+    <div class="not-ready-msg" id="notReadyMsg"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div class="genre-row" id="genreRow">
+    <button class="genre-pill active" onclick="filterGenre('ALL', this)">All</button>
+  </div>
+  <div class="section-title" id="sectionTitle">All titles</div>
+  <div class="grid" id="movieGrid">
+    <div class="state-msg">
+      <div class="big">No services configured</div>
+      Click <strong>⚙ Configure API</strong> to connect to your backend.
+    </div>
+  </div>
+</main>
+
+<!-- ERROR TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+let CONFIG = {
+  contentUrl:   localStorage.getItem('contentUrl')   || 'http://localhost:8081',
+  streamingUrl: localStorage.getItem('streamingUrl') || 'http://localhost:8084'
+};
+let allMovies     = [];
+let filtered      = [];
+let currentMovie  = null;
+let hlsInstance   = null;
+let activeGenre   = 'ALL';
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('contentUrl').value   = CONFIG.contentUrl;
+  document.getElementById('streamingUrl').value = CONFIG.streamingUrl;
+
+  if (localStorage.getItem('contentUrl')) {
+    loadMovies();
+  } else {
+    openConfig();
+  }
+});
+
+// ── CONFIG ──
+function openConfig() {
+  document.getElementById('configPanel').classList.add('open');
+}
+function closeConfig() {
+  document.getElementById('configPanel').classList.remove('open');
+}
+function saveConfig() {
+  CONFIG.contentUrl   = document.getElementById('contentUrl').value.replace(/\/$/, '');
+  CONFIG.streamingUrl = document.getElementById('streamingUrl').value.replace(/\/$/, '');
+  localStorage.setItem('contentUrl',   CONFIG.contentUrl);
+  localStorage.setItem('streamingUrl', CONFIG.streamingUrl);
+  closeConfig();
+  loadMovies();
+}
+
+// ── LOAD MOVIES ──
+async function loadMovies() {
+  const grid = document.getElementById('movieGrid');
+  grid.innerHTML = '<div class="state-msg"><div class="spinner"></div>Loading catalogue…</div>';
+
+  try {
+    const res  = await fetch(`${CONFIG.contentUrl}/api/v1/movies`);
+    if (!res.ok) throw new Error(`Content service responded ${res.status}`);
+    allMovies = await res.json();
+    buildGenrePills();
+    renderMovies(allMovies);
+  } catch (e) {
+    grid.innerHTML = `<div class="state-msg"><div class="big">Could not connect</div>${e.message}<br><br>Check your API configuration.</div>`;
+    showToast(e.message);
+  }
+}
+
+// ── GENRE ──
+function buildGenrePills() {
+  const genres = ['ALL', ...new Set(allMovies.map(m => m.genere).filter(Boolean))];
+  const row = document.getElementById('genreRow');
+  row.innerHTML = genres.map(g =>
+    `<button class="genre-pill${g === 'ALL' ? ' active' : ''}" onclick="filterGenre('${g}', this)">${fmt(g)}</button>`
+  ).join('');
+}
+
+function filterGenre(genre, btn) {
+  activeGenre = genre;
+  document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  applyFilters(q);
+}
+
+function handleSearch(q) {
+  applyFilters(q.trim().toLowerCase());
+}
+
+function applyFilters(q) {
+  filtered = allMovies
+    .filter(m => activeGenre === 'ALL' || m.genere === activeGenre)
+    .filter(m => !q || m.title.toLowerCase().includes(q));
+  const title = activeGenre === 'ALL' ? 'All titles' : fmt(activeGenre);
+  document.getElementById('sectionTitle').textContent = q ? `Results for "${q}"` : title;
+  renderMovies(filtered);
+}
+
+// ── RENDER ──
+function renderMovies(movies) {
+  const grid = document.getElementById('movieGrid');
+  if (!movies.length) {
+    grid.innerHTML = '<div class="state-msg"><div class="big">Nothing here</div>Try a different filter.</div>';
+    return;
+  }
+
+  grid.innerHTML = movies.map((m, i) => `
+    <div class="card" style="animation-delay:${i * 30}ms" onclick="openDetail('${m.id}')">
+      <div class="card-thumb">
+        ${m.thumbnailUrl
+          ? `<img src="${m.thumbnailUrl}" alt="${esc(m.title)}" loading="lazy">`
+          : `<svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m8 21 8 0M12 17v4"/></svg>`}
+        <span class="card-status status-${m.videoStatus}">${fmt(m.videoStatus)}</span>
+        ${m.videoStatus === 'READY' ? `
+        <div class="play-overlay">
+          <div class="play-circle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="${'#c8a97e'}"><path d="M5 3l14 9-14 9V3z"/></svg>
+          </div>
+        </div>` : ''}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${esc(m.title)}</div>
+        <div class="card-meta">
+          <span class="card-rating">★ ${m.rating ? m.rating.toFixed(1) : '—'}</span>
+          <span class="dot"></span>
+          <span>${m.releaseYear || '—'}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── DETAIL PANEL ──
+function openDetail(id) {
+  const m = allMovies.find(x => x.id === id);
+  if (!m) return;
+  currentMovie = m;
+
+  document.getElementById('detailGenre').textContent    = fmt(m.genere) || '—';
+  document.getElementById('detailTitle').textContent    = m.title;
+  document.getElementById('detailRating').textContent   = m.rating ? `★ ${m.rating.toFixed(1)}` : '—';
+  document.getElementById('detailYear').textContent     = m.releaseYear || '—';
+  document.getElementById('detailDuration').textContent = m.durationMinutes ? `${m.durationMinutes} min` : '—';
+  document.getElementById('detailDirector').textContent = m.director || '—';
+  document.getElementById('detailDesc').textContent     = m.description || 'No description available.';
+
+  const btn = document.getElementById('btnPlay');
+  const msg = document.getElementById('notReadyMsg');
+
+  if (m.videoStatus === 'READY') {
+    btn.disabled = false;
+    msg.textContent = '';
+  } else {
+    btn.disabled = true;
+    const statusMsg = {
+      PENDING:  'Video not uploaded yet.',
+      UPLOADED: 'Encoding queued…',
+      ENCODING: 'Encoding in progress — check back soon.',
+      ENCODED:  'Finalising stream…',
+      FAILED:   'Encoding failed. Re-upload required.',
+    };
+    msg.textContent = statusMsg[m.videoStatus] || 'Not available.';
+  }
+
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closeDetail(e) {
+  if (e && e.target !== document.getElementById('detailPanel')) return;
+  document.getElementById('detailPanel').classList.remove('open');
+  currentMovie = null;
+}
+
+// ── STREAM ──
+async function startStream() {
+  if (!currentMovie) return;
+  const movie = currentMovie;
+  closeDetail();
+  openPlayer(movie);
+}
+
+function openPlayer(movie) {
+  document.getElementById('playerTitle').innerHTML = esc(movie.title) +
+    `<span>${movie.releaseYear || ''}</span>`;
+  document.getElementById('streamLoading').classList.add('show');
+  document.getElementById('streamLoadingMsg').textContent = 'Fetching stream…';
+  document.getElementById('playerModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  fetchAndPlay(movie);
+}
+
+// ── CUSTOM HLS LOADER ─────────────────────────────────────────────────────
+//
+// The problem:
+//   hls.js fetches master.m3u8 (signed) → parses it → finds relative paths
+//   like "1080p/playlist.m3u8" → requests them DIRECTLY from S3 → 403
+//   because those nested URLs are not signed.
+//
+// The solution:
+//   Intercept every hls.js load call at the loader level.
+//
+//   If the URL is a .m3u8:
+//     → Extract the S3 key from the presigned URL (everything before '?')
+//     → Proxy through our backend: GET /api/v1/stream/{movieId}/playlist?path=<key>
+//     → Backend reads the file from S3, rewrites every line (nested playlists
+//       and .ts segments) to fresh presigned URLs, returns signed plain text
+//     → Feed that signed content back to hls.js as if it came from S3
+//
+//   If the URL is a .ts segment (or anything else):
+//     → It's already a fully-signed S3 URL (rewritten by the backend above)
+//     → Let it go directly to S3 — no proxy needed, no CORS issue
+//
+// This means:
+//   - master.m3u8  → backend proxy (signs nested playlist refs)
+//   - 1080p/playlist.m3u8 → backend proxy (signs all .ts segment refs)
+//   - segment_001.ts → direct to S3 (already signed by the step above)
+//
+function buildSignedLoader(movieId, streamingBaseUrl) {
+
+  // Get the real XhrLoader class from a throwaway Hls instance.
+  // Hls.DefaultConfig.loader is undefined until after instantiation in v1.x.
+  const tempHls   = new Hls();
+  const XhrLoader = tempHls.config.loader;
+  tempHls.destroy();
+
+  return class SignedPlaylistLoader extends XhrLoader {
+    constructor(config) {
+      super(config);
+    }
+
+    load(context, config, callbacks) {
+      const url = context.url;
+
+      // Use context.type (not URL string) to decide what to intercept.
+      //   manifest / level / audioTrack / subtitleTrack  -> .m3u8 -> proxy through backend
+      //   frag                                           -> .ts   -> pass directly to S3
+      const isPlaylist = (
+        context.type === 'manifest'     ||
+        context.type === 'level'        ||
+        context.type === 'audioTrack'   ||
+        context.type === 'subtitleTrack'
+      );
+
+      if (!isPlaylist) {
+        super.load(context, config, callbacks);
+        return;
+      }
+
+      // Extract S3 key from presigned URL (strip leading '/' and query string)
+      let s3Key;
+      try {
+        s3Key = new URL(url).pathname.slice(1);
+      } catch (_) {
+        s3Key = url.replace(/^https?:\/\/[^/]+\//, '').split('?')[0];
+      }
+
+      const proxyUrl =
+        `${streamingBaseUrl}/api/v1/stream/${movieId}/playlist` +
+        `?path=${encodeURIComponent(s3Key)}`;
+
+      const tRequest = performance.now();
+
+      fetch(proxyUrl)
+        .then(res => {
+          if (!res.ok) throw new Error(`Backend playlist proxy ${res.status} for "${s3Key}"`);
+          return res.text();
+        })
+        .then(signedContent => {
+          const tNow = performance.now();
+          const response = { url, data: signedContent };
+          // hls.js v1.x exact stats shape — wrong fields = silent discard
+          const stats = {
+            aborted:    false,
+            retry:      0,
+            loaded:     signedContent.length,
+            total:      signedContent.length,
+            chunkCount: 1,
+            bwEstimate: 0,
+            loading:   { start: tRequest, first: tNow, end: tNow },
+            parsing:   { start: 0, end: 0 },
+            buffering: { start: 0, first: 0, end: 0 },
+          };
+          callbacks.onSuccess(response, stats, context, null);
+        })
+        .catch(err => {
+          callbacks.onError({ code: 0, text: err.message }, context, null, null);
+        });
+    }
+
+    abort() {
+      try { super.abort(); } catch (_) {}
+    }
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchAndPlay(movie) {
+  try {
+    document.getElementById('streamLoadingMsg').textContent = 'Requesting presigned URL…';
+    const res = await fetch(`${CONFIG.streamingUrl}/api/v1/stream/${movie.id}`);
+    if (!res.ok) throw new Error(`Streaming service: ${res.status} — movie may not be ready.`);
+
+    const data = await res.json();
+    // data: { movieId, streamingUrl, quality, expiredInMinutes }
+    // streamingUrl = presigned URL to master.m3u8 on S3
+
+    document.getElementById('streamLoadingMsg').textContent = 'Initialising HLS player…';
+    document.getElementById('playerQuality').textContent = data.quality || '—';
+    document.getElementById('playerExpiry').textContent  = data.expiredInMinutes
+      ? `URL expires in ${data.expiredInMinutes} min` : '';
+
+    const video = document.getElementById('videoEl');
+
+    if (Hls.isSupported()) {
+      if (hlsInstance) { hlsInstance.destroy(); }
+
+      // Attach our custom loader so every .m3u8 request is proxied through
+      // the backend's signing endpoint instead of going directly to S3.
+      hlsInstance = new Hls({
+        enableWorker:   false,   // workers can't use our custom loader
+        lowLatencyMode: false,
+        loader:         buildSignedLoader(movie.id, CONFIG.streamingUrl),
+      });
+
+      hlsInstance.loadSource(data.streamingUrl);
+      hlsInstance.attachMedia(video);
+
+      // Once the master manifest is parsed, hls.js populates hls.levels[].
+      // Each level has: { height, bitrate, url } — height = 1080/720/etc.
+      // We build the quality menu from this, then start playback.
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+        document.getElementById('streamLoading').classList.remove('show');
+        buildQualityMenu(hlsInstance, data.levels);
+        video.play().catch(() => {});
+      });
+
+      // Keep the active quality label in sync as hls.js switches levels
+      // automatically (during adaptive mode) or after we force a level.
+      hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+        updateQualityLabel(hlsInstance, data.level);
+      });
+
+      hlsInstance.on(Hls.Events.ERROR, (_, d) => {
+        if (d.fatal) {
+          document.getElementById('streamLoading').classList.remove('show');
+          showToast(`HLS ${d.type}: ${d.details}`);
+        }
+      });
+
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari has native HLS support — it manages its own requests internally
+      // and cannot use a custom loader. For Safari we must rely on the S3 CORS
+      // policy (AllowedOrigins: [*]) being configured on the bucket.
+      // The presigned master.m3u8 URL will work; Safari will request sub-playlists
+      // and segments via relative path resolution directly against S3.
+      video.src = data.streamingUrl;
+      document.getElementById('streamLoading').classList.remove('show');
+      video.play().catch(() => {});
+
+    } else {
+      throw new Error('HLS not supported in this browser.');
+    }
+
+  } catch (e) {
+    document.getElementById('streamLoading').classList.remove('show');
+    showToast(e.message);
+    closePlayer();
+  }
+}
+
+// ── QUALITY SWITCHER ─────────────────────────────────────────────────────
+
+// Called once after MANIFEST_PARSED. Builds one menu row per HLS level.
+// levels[] is sorted by hls.js: index 0 = lowest bitrate, last = highest.
+// We display them highest-first so 1080p is at the top.
+function buildQualityMenu(hls, levels) {
+  const opts  = document.getElementById('qualityOptions');
+  const wrap  = document.getElementById('qualityWrap');
+
+  // Build menu rows highest→lowest quality
+  const rows = [];
+
+  // "Auto" row — hls.currentLevel = -1 means adaptive
+  rows.push(`
+    <div class="quality-option active" data-level="-1" onclick="setQuality(-1)">
+      <span>Auto</span>
+      <span class="quality-bitrate">adaptive</span>
+    </div>`);
+
+  // One row per level, highest index (best quality) first
+  for (let i = levels.length - 1; i >= 0; i--) {
+    const l      = levels[i];
+    const label  = l.height ? l.height + 'p' : 'Level ' + i;
+    const kbps   = l.bitrate ? Math.round(l.bitrate / 1000) + ' kbps' : '';
+    rows.push(`
+      <div class="quality-option" data-level="${i}" onclick="setQuality(${i})">
+        <span>${label}</span>
+        <span class="quality-bitrate">${kbps}</span>
+      </div>`);
+  }
+
+  opts.innerHTML  = rows.join('');
+  wrap.style.display = 'block';
+  document.getElementById('qualityLabel').textContent = 'Auto';
+  document.getElementById('qualityBadge').textContent = 'HLS Adaptive';
+}
+
+// Lock hls.js to a specific level (or -1 = adaptive).
+// hls.currentLevel = n  →  switches immediately at the next segment boundary.
+// hls.nextLevel    = n  →  switches after the current segment finishes.
+// We use currentLevel for an instant switch.
+function setQuality(levelIndex) {
+  if (!hlsInstance) return;
+
+  hlsInstance.currentLevel = levelIndex;  // -1 = auto, 0..n = locked
+
+  // Update active state in menu
+  document.querySelectorAll('.quality-option').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.level) === levelIndex);
+  });
+
+  closeQualityMenu();
+}
+
+// After hls.js switches (auto or manual), update the button label and badge.
+function updateQualityLabel(hls, levelIndex) {
+  const levels = hls.levels;
+  if (!levels || !levels[levelIndex]) return;
+
+  const label = levels[levelIndex].height
+    ? levels[levelIndex].height + 'p'
+    : 'Level ' + levelIndex;
+
+  const isAuto = hls.autoLevelEnabled;
+  document.getElementById('qualityLabel').textContent = isAuto ? `Auto (${label})` : label;
+  document.getElementById('qualityBadge').textContent = isAuto ? `Auto · ${label}` : label;
+  document.getElementById('playerQuality').textContent =
+    levels.map(l => l.height ? l.height + 'p' : '?').reverse().join(' · ');
+
+  // Sync active dot in menu: in Auto mode, mark "Auto" row active;
+  // in locked mode, mark the specific level row active.
+  document.querySelectorAll('.quality-option').forEach(el => {
+    const li = parseInt(el.dataset.level);
+    el.classList.toggle('active',
+      isAuto ? li === -1 : li === levelIndex
+    );
+  });
+}
+
+function toggleQualityMenu(e) {
+  e.stopPropagation();
+  document.getElementById('qualityMenu').classList.toggle('open');
+}
+function closeQualityMenu() {
+  document.getElementById('qualityMenu').classList.remove('open');
+}
+
+// Click anywhere outside the menu to close it
+document.addEventListener('click', () => closeQualityMenu());
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function closePlayer() {
+  document.getElementById('playerModal').classList.remove('open');
+  document.body.style.overflow = '';
+  const video = document.getElementById('videoEl');
+  video.pause();
+  video.src = '';
+  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+  document.getElementById('streamLoading').classList.add('show');
+  // Reset quality UI
+  document.getElementById('qualityWrap').style.display = 'none';
+  document.getElementById('qualityOptions').innerHTML  = '';
+  document.getElementById('qualityLabel').textContent  = 'Auto';
+  document.getElementById('qualityBadge').textContent  = 'HLS Adaptive';
+  document.getElementById('playerQuality').textContent = '';
+  closeQualityMenu();
+}
+
+// ── UTILS ──
+function fmt(s) {
+  if (!s) return '';
+  return s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showToast(msg, duration = 4000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// Close modals on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closePlayer();
+    document.getElementById('detailPanel').classList.remove('open');
+    closeConfig();
+  }
+});
+</script>
+</body>
+</html>
