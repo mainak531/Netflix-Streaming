@@ -1,0 +1,21 @@
+# encoding temp files
+/tmp/
+*.mp4
+*.ts
+*.m3u8
+
+# node
+node_modules/
+
+# logs
+*.log
+
+# build
+target/
+dist/
+
+# env
+.env
+
+.vscode/
+.idea/
